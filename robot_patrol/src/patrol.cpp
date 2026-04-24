@@ -135,10 +135,21 @@ void Patrol::cmd_vel_pub_timer_clbk_() {
   }
 }
 
+std::shared_ptr<Patrol> robot_patrol_node;
+
+void signal_handler(int signum) {
+
+  robot_patrol_node->stop_robot();
+  rclcpp::shutdown();
+}
+
 int main(int argc, char **argv) {
 
   rclcpp::init(argc, argv);
-  auto robot_patrol_node = std::make_shared<Patrol>("robot_patrol_node");
+  robot_patrol_node = std::make_shared<Patrol>("robot_patrol_node");
+
+  // Register the signal handler for CTRL+C
+  std::signal(SIGINT, signal_handler);
 
   rclcpp::spin(robot_patrol_node);
   return 0;
