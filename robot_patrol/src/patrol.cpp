@@ -58,7 +58,13 @@ void Patrol::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
   double delta_yaw = yaw - this->previous_yam_;
 
   // Normalize the delta_yaw to the range [-pi, pi]
-  delta_yaw = std::fmod(delta_yaw + M_PI, 2 * M_PI) - M_PI;
+  // delta_yaw = std::fmod(delta_yaw + M_PI, 2 * M_PI) - M_PI;
+
+  if (delta_yaw > M_PI) {
+    delta_yaw -= 2.0 * M_PI;
+  } else if (delta_yaw < -M_PI) {
+    delta_yaw += 2.0 * M_PI;
+  }
 
   // Calculate the total robot rotation done since the robot is moving
   this->accumulated_yaw_ += std::abs(delta_yaw);
