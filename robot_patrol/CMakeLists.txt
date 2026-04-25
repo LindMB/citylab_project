@@ -9,6 +9,9 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(tf2 REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -16,7 +19,13 @@ find_package(sensor_msgs REQUIRED)
 include_directories(include)
 
 add_executable(${PROJECT_NAME}_node src/patrol.cpp)
-ament_target_dependencies(${PROJECT_NAME}_node rclcpp sensor_msgs)
+ament_target_dependencies(${PROJECT_NAME}_node 
+  rclcpp
+  sensor_msgs 
+  geometry_msgs 
+  nav_msgs 
+  tf2
+)
 
 install(TARGETS ${PROJECT_NAME}_node
  DESTINATION lib/${PROJECT_NAME}
