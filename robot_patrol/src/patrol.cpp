@@ -204,7 +204,7 @@ bool Patrol::is_obstacle_detected_(
 
 void Patrol::cmd_vel_pub_timer_clbk_() {
 
-  // If obstacle detected AND robot is not turning around
+  // If obstacle detected
   if (this->obstacle_detected_) {
 
     // Rotate to avoid obstacle
@@ -217,6 +217,7 @@ void Patrol::cmd_vel_pub_timer_clbk_() {
 
     RCLCPP_INFO(this->get_logger(), "No obstacle in front of me.");
 
+    // If the robot is turning around after a lap completion
     if (this->lap_completed_ && !(this->turn_around_completed_)) {
 
       turn_robot_around_();
