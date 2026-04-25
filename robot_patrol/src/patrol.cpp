@@ -98,8 +98,8 @@ void Patrol::stop_robot() {
 bool Patrol::is_obstacle_detected_(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
 
-  int index_min = (-(M_PI / 12) - msg->angle_min) / msg->angle_increment;
-  int index_max = ((M_PI / 12) - msg->angle_min) / msg->angle_increment;
+  int index_min = (-(M_PI / 10) - msg->angle_min) / msg->angle_increment;
+  int index_max = ((M_PI / 10) - msg->angle_min) / msg->angle_increment;
   index_min = std::max(0, index_min);
   index_max = std::min((int)msg->ranges.size() - 1, index_max);
 
