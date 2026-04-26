@@ -37,9 +37,24 @@ Patrol::Patrol(const std::string &node_name)
 
 void Patrol::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
 
+  // Retrieve robot position from msg
+  this->current_pos_x_ = msg->pose.pose.position.x;
+  this->current_pos_y_ = msg->pose.pose.position.y;
+
   // Retrieve robot orientation from msg
   tf2::Quaternion q(msg->pose.pose.orientation.x, msg->pose.pose.orientation.y,
                     msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
+
+  // Init the robot starting position
+  if (!this->start_position_initialized_) {
+    this->start_pos_x_ = this->current_pos_x_;
+    this->start_pos_y_ = this->current_pos_y_;
+
+    this->previous_pos_x_ = this->current_pos_x_;
+    this->previous_pos_y_ = this->current_pos_y_;
+
+    this->start_position_initialized_ = true;
+  }
 
   // Convert quaternion to angle (roll, pitch, yaw)
   // with yaw -> orientation around the z-axis
@@ -54,6 +69,20 @@ void Patrol::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
     return;
   }
 
+  // Calculate the change in position between the current and previous positions
+  double dx = this->current_pos_x_ - this->previous_pos_x_;
+  double dy = this->current_pos_y_ - this->previous_pos_y_;
+
+  // Calculate the total distance traveled since the robot is moving
+  this->traveled_distance_ += std::sqrt(dx * dx + dy * dy);
+
+  RCLCPP_INFO(this->get_logger(), "traveled_distance_ : %.2f",
+              this->traveled_distance_);
+
+  // Update the previous robot position
+  this->previous_pos_x_ = this->current_pos_x_;
+  this->previous_pos_y_ = this->current_pos_y_;
+
   // Calculate the variation angle around the z-axis
   double delta_yaw = yaw - this->previous_yam_;
 
@@ -66,46 +95,52 @@ void Patrol::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
     delta_yaw += 2.0 * M_PI;
   }
 
-  // Calculate the total robot rotation done since the robot is moving
+  // Calculate the total robot rotation done since the robot started moving
 
   // Ignore small noise-induced movements
   double filtered_delta = 0.0;
 
-  if (std::abs(delta_yaw) > 0.02) { // Threshold
+  if (std::abs(delta_yaw) > 0.02) { // Threshold for actual movements
     filtered_delta = delta_yaw;
   } else {
     filtered_delta = 0.0;
   }
 
-  // Robot is currently doing the 180 deg turn
+  // If the robot is currently doing the 180 deg turn
   if (this->lap_completed_ && !this->turn_around_completed_) {
 
     this->accumulated_turn_yaw_ += std::abs(filtered_delta);
 
     RCLCPP_INFO(this->get_logger(), "accumulated_turn_yaw_ : %.2f",
                 this->accumulated_turn_yaw_);
-  } else {
-    // Robot is currently doing a normal lap
-    this->accumulated_lap_yaw_ += std::abs(filtered_delta);
-
-    RCLCPP_INFO(this->get_logger(), "accumulated_lap_yaw_ : %.2f",
-                this->accumulated_lap_yaw_);
   }
 
   // Update previous_yaw for the next calculation
   this->previous_yam_ = yaw;
 
-  // If the robot has completed a full lap
-  if (std::abs(this->accumulated_lap_yaw_) >= 2.0 * M_PI &&
-      !(this->lap_completed_)) {
+  // Calculate the change in position between the current and starting positions
+  double dx_start = this->current_pos_x_ - this->start_pos_x_;
+  double dy_start = this->current_pos_y_ - this->start_pos_y_;
+
+  // Calculate the distance from where the robot is currently
+  // to where its starting point is
+  double distance_from_start =
+      std::sqrt(dx_start * dx_start + dy_start * dy_start);
+
+  RCLCPP_INFO(this->get_logger(), "distance_from_start : %.2f",
+              distance_from_start);
+
+  // If the distance between the robot and its starting point is less than 35cm
+  // AND if the robot traveled more than 2.0 meters
+  if (distance_from_start < 0.35 && this->traveled_distance_ > 2.0 &&
+      !this->lap_completed_) {
 
     RCLCPP_INFO(this->get_logger(), "1 full lap completed !");
+
     this->lap_completed_ = true;
 
     // Prepare robot to turn around after a lap completed
     this->turn_around_completed_ = false;
-
-    // Prepare robot to calculate accumulated_turn_yaw_ for the 180 deg rotation
     this->accumulated_turn_yaw_ = 0.0;
   }
 }
@@ -189,7 +224,7 @@ void Patrol::turn_robot_around_() {
   if (std::abs(this->accumulated_turn_yaw_) < M_PI) {
 
     RCLCPP_INFO(this->get_logger(), "I'm turning around...");
-    turn_around_msg.angular.z = this->direction_ / 2; // Continue to rotate
+    turn_around_msg.angular.z = 0.2; // Continue to rotate
 
   } else {
 
@@ -201,13 +236,29 @@ void Patrol::turn_robot_around_() {
     // Prepare robot to detect if a new lap is completed
     this->lap_completed_ = false;
 
-    // Prepare robot to calculate accumulated_lap_yaw_ for the full lap
-    this->accumulated_lap_yaw_ = 0.0;
-    // Prepare robot to calculate accumulated_turn_yaw_ for turning around
+    // Prepare robot to calculate accumulated_turn_yaw_ for the full lap
     this->accumulated_turn_yaw_ = 0.0;
+
+    // Reset all positions for the next lap
+    this->start_pos_x_ = this->current_pos_x_;
+    this->start_pos_y_ = this->current_pos_y_;
+
+    this->previous_pos_x_ = this->current_pos_x_;
+    this->previous_pos_y_ = this->current_pos_y_;
+
+    // Reset the robot traveled distance for the next lap
+    this->traveled_distance_ = 0.0;
   }
 
   this->cmd_vel_pub_->publish(turn_around_msg);
+}
+
+void Patrol::avoid_obstacle_() {
+
+  auto avoid_msg = geometry_msgs::msg::Twist();
+  avoid_msg.linear.x = 0.1;
+  avoid_msg.angular.z = this->direction_ / 2;
+  this->cmd_vel_pub_->publish(avoid_msg);
 }
 
 void Patrol::stop_robot() {
@@ -250,28 +301,18 @@ bool Patrol::is_obstacle_detected_(
 
 void Patrol::cmd_vel_pub_timer_clbk_() {
 
-  // If obstacle detected
-  if (this->obstacle_detected_) {
+  // If the robot is turning around after a lap completion
+  if (this->lap_completed_ && !(this->turn_around_completed_)) {
 
-    // Rotate to avoid obstacle
-    auto avoid_msg = geometry_msgs::msg::Twist();
-    avoid_msg.linear.x = 0.1;
-    avoid_msg.angular.z = this->direction_ / 2;
-    this->cmd_vel_pub_->publish(avoid_msg);
+    turn_robot_around_();
+  }
+  // If obstacle detected
+  else if (this->obstacle_detected_) {
+
+    avoid_obstacle_();
 
   } else {
-
-    // RCLCPP_INFO(this->get_logger(), "No obstacle in front of me.");
-
-    // If the robot is turning around after a lap completion
-    if (this->lap_completed_ && !(this->turn_around_completed_)) {
-
-      turn_robot_around_();
-
-    } else {
-
-      move_robot_forward_();
-    }
+    move_robot_forward_();
   }
 }
 

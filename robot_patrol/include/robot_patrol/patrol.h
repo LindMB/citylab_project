@@ -22,14 +22,28 @@ public:
 
 private:
   std::string node_name_;
-  float direction_;
-  bool obstacle_detected_ = false;
+
   bool first_odom_ = false;
-  double previous_yam_;
-  double accumulated_lap_yaw_;
-  double accumulated_turn_yaw_;
+  bool start_position_initialized_ = false;
+
+  bool obstacle_detected_ = false;
   bool lap_completed_ = false;
   bool turn_around_completed_ = false;
+
+  double direction_;
+  double previous_yam_;
+  double accumulated_turn_yaw_;
+
+  double start_pos_x_ = 0.0;
+  double start_pos_y_ = 0.0;
+
+  double current_pos_x_ = 0.0;
+  double current_pos_y_ = 0.0;
+
+  double previous_pos_x_ = 0.0;
+  double previous_pos_y_ = 0.0;
+
+  double traveled_distance_ = 0.0;
 
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr laserscan_sub_;
@@ -43,5 +57,6 @@ private:
       const sensor_msgs::msg::LaserScan::SharedPtr msg);
   void move_robot_forward_();
   void turn_robot_around_();
+  void avoid_obstacle_();
   void cmd_vel_pub_timer_clbk_();
 };
