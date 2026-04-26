@@ -77,16 +77,26 @@ void Patrol::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
     filtered_delta = 0.0;
   }
 
-  accumulated_yaw_ += std::abs(filtered_delta);
+  // Robot is currently doing the 180 deg turn
+  if (this->lap_completed_ && !this->turn_around_completed_) {
 
-  RCLCPP_INFO(this->get_logger(), "accumulated_yaw_ : %.2f",
-              std::abs(this->accumulated_yaw_));
+    this->accumulated_turn_yaw_ += std::abs(filtered_delta);
+
+    RCLCPP_INFO(this->get_logger(), "accumulated_turn_yaw_ : %.2f",
+                this->accumulated_turn_yaw_);
+  } else {
+    // Robot is currently doing a normal lap
+    this->accumulated_lap_yaw_ += std::abs(filtered_delta);
+
+    RCLCPP_INFO(this->get_logger(), "accumulated_lap_yaw_ : %.2f",
+                this->accumulated_lap_yaw_);
+  }
 
   // Update previous_yaw for the next calculation
   this->previous_yam_ = yaw;
 
   // If the robot has completed a full lap
-  if (std::abs(this->accumulated_yaw_) >= 2.0 * M_PI &&
+  if (std::abs(this->accumulated_lap_yaw_) >= 2.0 * M_PI &&
       !(this->lap_completed_)) {
 
     RCLCPP_INFO(this->get_logger(), "1 full lap completed !");
@@ -95,8 +105,8 @@ void Patrol::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
     // Prepare robot to turn around after a lap completed
     this->turn_around_completed_ = false;
 
-    // Prepare robot to calculate accumulated_yaw_ for the 180 deg rotation
-    this->accumulated_yaw_ = 0.0;
+    // Prepare robot to calculate accumulated_turn_yaw_ for the 180 deg rotation
+    this->accumulated_turn_yaw_ = 0.0;
   }
 }
 
@@ -176,7 +186,7 @@ void Patrol::turn_robot_around_() {
   auto turn_around_msg = geometry_msgs::msg::Twist();
 
   // If the robot has not finish to turn around
-  if (std::abs(this->accumulated_yaw_) < M_PI) {
+  if (std::abs(this->accumulated_turn_yaw_) < M_PI) {
 
     RCLCPP_INFO(this->get_logger(), "I'm turning around...");
     turn_around_msg.angular.z = this->direction_ / 2; // Continue to rotate
@@ -188,11 +198,13 @@ void Patrol::turn_robot_around_() {
 
     this->turn_around_completed_ = true;
 
-    // Prepare robot to deetct if a new lap is completed
+    // Prepare robot to detect if a new lap is completed
     this->lap_completed_ = false;
 
-    // Prepare robot to calculate accumulated_yaw_ for the full lap
-    this->accumulated_yaw_ = 0.0;
+    // Prepare robot to calculate accumulated_lap_yaw_ for the full lap
+    this->accumulated_lap_yaw_ = 0.0;
+    // Prepare robot to calculate accumulated_turn_yaw_ for turning around
+    this->accumulated_turn_yaw_ = 0.0;
   }
 
   this->cmd_vel_pub_->publish(turn_around_msg);

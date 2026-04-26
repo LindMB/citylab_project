@@ -26,7 +26,8 @@ private:
   bool obstacle_detected_ = false;
   bool first_odom_ = false;
   double previous_yam_;
-  double accumulated_yaw_;
+  double accumulated_lap_yaw_;
+  double accumulated_turn_yaw_;
   bool lap_completed_ = false;
   bool turn_around_completed_ = false;
 
