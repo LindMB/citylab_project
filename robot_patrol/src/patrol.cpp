@@ -37,9 +37,24 @@ Patrol::Patrol(const std::string &node_name)
 
 void Patrol::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
 
+  // Retrieve robot position from msg
+  this->current_pos_x_ = msg->pose.pose.position.x;
+  this->current_pos_y_ = msg->pose.pose.position.y;
+
   // Retrieve robot orientation from msg
   tf2::Quaternion q(msg->pose.pose.orientation.x, msg->pose.pose.orientation.y,
                     msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
+
+  // Init the robot starting position
+  if (!this->start_position_initialized_) {
+    this->start_pos_x_ = this->current_pos_x_;
+    this->start_pos_y_ = this->current_pos_y_;
+
+    this->previous_pos_x_ = this->current_pos_x_;
+    this->previous_pos_y_ = this->current_pos_y_;
+
+    this->start_position_initialized_ = true;
+  }
 
   // Convert quaternion to angle (roll, pitch, yaw)
   // with yaw -> orientation around the z-axis
@@ -54,6 +69,20 @@ void Patrol::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
     return;
   }
 
+  // Calculate the change in position between the current and previous positions
+  double dx = this->current_pos_x_ - this->previous_pos_x_;
+  double dy = this->current_pos_y_ - this->previous_pos_y_;
+
+  // Calculate the total distance traveled since the robot is moving
+  this->traveled_distance_ += std::sqrt(dx * dx + dy * dy);
+
+  RCLCPP_INFO(this->get_logger(), "traveled_distance_ : %.2f",
+              this->traveled_distance_);
+
+  // Update the previous robot position
+  this->previous_pos_x_ = this->current_pos_x_;
+  this->previous_pos_y_ = this->current_pos_y_;
+
   // Calculate the variation angle around the z-axis
   double delta_yaw = yaw - this->previous_yam_;
 
@@ -66,26 +95,42 @@ void Patrol::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
     delta_yaw += 2.0 * M_PI;
   }
 
-  // Calculate the total robot rotation done since the robot is moving
-  this->accumulated_yaw_ += std::abs(delta_yaw);
-  RCLCPP_INFO(this->get_logger(), "accumulated_yaw_ : %.2f",
-              std::abs(this->accumulated_yaw_));
+  // Robot is currently doing the 180 deg turn
+  if (this->lap_completed_ && !this->turn_around_completed_) {
+
+    this->accumulated_turn_yaw_ += std::abs(delta_yaw);
+
+    RCLCPP_INFO(this->get_logger(), "accumulated_turn_yaw_ : %.2f",
+                this->accumulated_turn_yaw_);
+  }
 
   // Update previous_yaw for the next calculation
   this->previous_yam_ = yaw;
 
-  // If the robot has completed a full lap
-  if (std::abs(this->accumulated_yaw_) >= 2.0 * M_PI &&
-      !(this->lap_completed_)) {
+  // Calculate the change in position between the current and starting positions
+  double dx_start = this->current_pos_x_ - this->start_pos_x_;
+  double dy_start = this->current_pos_y_ - this->start_pos_y_;
+
+  // Calculate the distance from where the robot is currently
+  // to where its starting point is
+  double distance_from_start =
+      std::sqrt(dx_start * dx_start + dy_start * dy_start);
+
+  RCLCPP_INFO(this->get_logger(), "distance_from_start : %.2f",
+              distance_from_start);
+
+  // If the distance between the robot and its starting point is less than 50cm
+  // if the robot traveled more than 2.0 meters
+  if (distance_from_start < 0.35 && this->traveled_distance_ > 2.0 &&
+      !this->lap_completed_) {
 
     RCLCPP_INFO(this->get_logger(), "1 full lap completed !");
+
     this->lap_completed_ = true;
 
     // Prepare robot to turn around after a lap completed
     this->turn_around_completed_ = false;
-
-    // Prepare robot to calculate accumulated_yaw_ for the 180 deg rotation
-    this->accumulated_yaw_ = 0.0;
+    this->accumulated_turn_yaw_ = 0.0;
   }
 }
 
@@ -108,33 +153,44 @@ void Patrol::laserscan_callback_(
 void Patrol::identify_safest_direction_to_move_next(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
 
-  int index_min = (-M_PI_2 - msg->angle_min) / msg->angle_increment;
-  int index_max = (M_PI_2 - msg->angle_min) / msg->angle_increment;
-  index_min = std::max(0, index_min);
-  index_max = std::min((int)msg->ranges.size() - 1, index_max);
+  double angle = msg->angle_min;
 
   // Init variables for the longest ray research
   float max_length = -std::numeric_limits<float>::infinity();
   int max_length_index = -1;
   float length = 0.0;
 
-  // Look for the longest ray in ranges between index_min and index_max
-  // (included)
-  for (int i = index_min; i <= index_max; i++) {
+  for (int i = 0; i < (int)msg->ranges.size(); i++) {
 
-    length = msg->ranges[i];
+    angle = msg->angle_min + (i * msg->angle_increment);
 
-    // If length is != from -inf, inf and NaN and is longer than the
-    // previous max_length than...
-    if (std::isfinite(length) && length > max_length) {
-      max_length = length;
-      max_length_index = i;
+    // Normalize angle
+    // from [0, 2pi] (lidar in real life) to [-pi, pi] (lidar in simulation)
+    if (angle > M_PI) {
+      angle -= 2.0 * M_PI;
+    }
+
+    // For a ray of the front section of the lidar...
+    if (angle <= M_PI_2 && angle >= -M_PI_2) {
+
+      length = msg->ranges[i];
+
+      // If length is != from -inf, inf and NaN and is longer than the
+      // previous max_length than...
+      if (std::isfinite(length) && length > max_length) {
+        max_length = length;
+        max_length_index = i;
+
+        // Store the normalised angle (in [-pi, pi]) regarding the ray position
+        this->direction_ = angle;
+      }
     }
   }
 
-  // Angle regarding the ray position
-  this->direction_ =
-      msg->angle_min + (max_length_index * msg->angle_increment); // in rads
+  // If no valid ray is found...
+  if (max_length_index == -1) {
+    this->direction_ = -0.2; // turn right slowly
+  }
 
   // RCLCPP_INFO(this->get_logger(),
   //"max_length: %.2f | max_length_index: %d | direction_ = %.2f",
@@ -154,7 +210,7 @@ void Patrol::turn_robot_around_() {
   auto turn_around_msg = geometry_msgs::msg::Twist();
 
   // If the robot has not finish to turn around
-  if (std::abs(this->accumulated_yaw_) < M_PI) {
+  if (std::abs(this->accumulated_turn_yaw_) < M_PI) {
 
     RCLCPP_INFO(this->get_logger(), "I'm turning around...");
     turn_around_msg.angular.z = this->direction_ / 2; // Continue to rotate
@@ -166,11 +222,21 @@ void Patrol::turn_robot_around_() {
 
     this->turn_around_completed_ = true;
 
-    // Prepare robot to deetct if a new lap is completed
+    // Prepare robot to detect if a new lap is completed
     this->lap_completed_ = false;
 
-    // Prepare robot to calculate accumulated_yaw_ for the full lap
-    this->accumulated_yaw_ = 0.0;
+    // Prepare robot to calculate accumulated_turn_yaw_ for the full lap
+    this->accumulated_turn_yaw_ = 0.0;
+
+    // Reset all positions for the next lap
+    this->start_pos_x_ = this->current_pos_x_;
+    this->start_pos_y_ = this->current_pos_y_;
+
+    this->previous_pos_x_ = this->current_pos_x_;
+    this->previous_pos_y_ = this->current_pos_y_;
+
+    // Reset the robot traveled distance for the next lap
+    this->traveled_distance_ = 0.0;
   }
 
   this->cmd_vel_pub_->publish(turn_around_msg);
@@ -186,22 +252,28 @@ void Patrol::stop_robot() {
 bool Patrol::is_obstacle_detected_(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
 
-  int index_min = (-(M_PI / 10) - msg->angle_min) / msg->angle_increment;
-  int index_max = ((M_PI / 10) - msg->angle_min) / msg->angle_increment;
-  index_min = std::max(0, index_min);
-  index_max = std::min((int)msg->ranges.size() - 1, index_max);
+  double angle;
 
-  for (int i = index_min; i <= index_max; i++) {
+  for (int i = 0; i < (int)msg->ranges.size(); i++) {
 
-    // If the ray length is different from inf, -inf and NAN AND is < 35cm
-    if (std::isfinite(msg->ranges[i]) && msg->ranges[i] < 0.35) {
+    angle = msg->angle_min + (i * msg->angle_increment);
 
-      // RCLCPP_INFO(this->get_logger(), "Obstacle detected at %.2f m ! ",
-      // msg->ranges[i]);
-      return true;
+    // Normalize angle
+    // from [0, 2pi] (lidar in real life) to [-pi, pi] (lidar in simulation)
+    if (angle > M_PI) {
+      angle -= 2.0 * M_PI;
+    }
 
-    } else {
-      // Do nothing
+    // For a ray of the front section of the lidar...
+    if (angle <= (M_PI / 10) && angle >= -(M_PI / 10)) {
+
+      // If the ray length is different from inf, -inf and NAN AND is < 35cm
+      if (std::isfinite(msg->ranges[i]) && msg->ranges[i] < 0.35) {
+
+        RCLCPP_INFO(this->get_logger(), "Obstacle detected at %.2f m ! ",
+                    msg->ranges[i]);
+        return true;
+      }
     }
   }
 
@@ -221,7 +293,7 @@ void Patrol::cmd_vel_pub_timer_clbk_() {
 
   } else {
 
-    RCLCPP_INFO(this->get_logger(), "No obstacle in front of me.");
+    // RCLCPP_INFO(this->get_logger(), "No obstacle in front of me.");
 
     // If the robot is turning around after a lap completion
     if (this->lap_completed_ && !(this->turn_around_completed_)) {
