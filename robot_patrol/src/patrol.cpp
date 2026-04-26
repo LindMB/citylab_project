@@ -119,9 +119,9 @@ void Patrol::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
   RCLCPP_INFO(this->get_logger(), "distance_from_start : %.2f",
               distance_from_start);
 
-  // If the distance between the robot and its starting point is less than 35cm
+  // If the distance between the robot and its starting point is less than 40cm
   // if the robot traveled more than 2.0 meters
-  if (distance_from_start < 0.35 && this->traveled_distance_ > 2.0 &&
+  if (distance_from_start < 0.40 && this->traveled_distance_ > 2.0 &&
       !this->lap_completed_) {
 
     RCLCPP_INFO(this->get_logger(), "1 full lap completed !");
@@ -242,6 +242,13 @@ void Patrol::turn_robot_around_() {
   this->cmd_vel_pub_->publish(turn_around_msg);
 }
 
+void Patrol::avoid_obstacle_() {
+  auto avoid_msg = geometry_msgs::msg::Twist();
+  avoid_msg.linear.x = 0.1;
+  avoid_msg.angular.z = this->direction_ / 2;
+  this->cmd_vel_pub_->publish(avoid_msg);
+}
+
 void Patrol::stop_robot() {
 
   auto stop_msg = geometry_msgs::msg::Twist(); // All fields default to zero
@@ -285,11 +292,7 @@ void Patrol::cmd_vel_pub_timer_clbk_() {
   // If obstacle detected
   if (this->obstacle_detected_) {
 
-    // Rotate to avoid obstacle
-    auto avoid_msg = geometry_msgs::msg::Twist();
-    avoid_msg.linear.x = 0.1;
-    avoid_msg.angular.z = this->direction_ / 2;
-    this->cmd_vel_pub_->publish(avoid_msg);
+    avoid_obstacle_();
 
   } else {
 

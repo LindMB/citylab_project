@@ -57,5 +57,6 @@ private:
       const sensor_msgs::msg::LaserScan::SharedPtr msg);
   void move_robot_forward_();
   void turn_robot_around_();
+  void avoid_obstacle_();
   void cmd_vel_pub_timer_clbk_();
 };
