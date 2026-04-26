@@ -19,15 +19,15 @@ Patrol::Patrol(const std::string &node_name)
   auto qos = rclcpp::QoS(10).reliability(rclcpp::ReliabilityPolicy::Reliable);
 
   this->laserscan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-      "/fastbot_1/scan", qos,
+      "/scan", qos,
       std::bind(&Patrol::laserscan_callback_, this, std::placeholders::_1));
 
   this->odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-      "/fastbot_1/odom", qos,
+      "/odom", qos,
       std::bind(&Patrol::odom_callback_, this, std::placeholders::_1));
 
-  this->cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>(
-      "/fastbot_1/cmd_vel", 10);
+  this->cmd_vel_pub_ =
+      this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
 
   auto timer_period = std::chrono::milliseconds(100); // 10Hz = 0.1s = 100ms
 
@@ -67,7 +67,18 @@ void Patrol::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
   }
 
   // Calculate the total robot rotation done since the robot is moving
-  this->accumulated_yaw_ += std::abs(delta_yaw);
+
+  // Ignore small noise-induced movements
+  double filtered_delta = 0.0;
+
+  if (std::abs(delta_yaw) > 0.02) { // Threshold
+    filtered_delta = delta_yaw;
+  } else {
+    filtered_delta = 0.0;
+  }
+
+  accumulated_yaw_ += std::abs(filtered_delta);
+
   RCLCPP_INFO(this->get_logger(), "accumulated_yaw_ : %.2f",
               std::abs(this->accumulated_yaw_));
 
@@ -135,13 +146,17 @@ void Patrol::identify_safest_direction_to_move_next(
       if (std::isfinite(length) && length > max_length) {
         max_length = length;
         max_length_index = i;
+
+        // Store the normalised angle (in [-pi, pi]) regarding the ray position
+        this->direction_ = angle;
       }
     }
   }
 
-  // Angle regarding the ray position
-  this->direction_ =
-      msg->angle_min + (max_length_index * msg->angle_increment); // in rads
+  // If no valid ray is found...
+  if (max_length_index == -1) {
+    this->direction_ = -0.2; // turn right slowly
+  }
 
   // RCLCPP_INFO(this->get_logger(),
   //"max_length: %.2f | max_length_index: %d | direction_ = %.2f",
@@ -206,13 +221,13 @@ bool Patrol::is_obstacle_detected_(
     }
 
     // For a ray of the front section of the lidar...
-    if (angle <= (M_PI / 12) && angle >= -(M_PI / 12)) {
+    if (angle <= (M_PI / 4) && angle >= -(M_PI / 4)) {
 
       // If the ray length is different from inf, -inf and NAN AND is < 35cm
       if (std::isfinite(msg->ranges[i]) && msg->ranges[i] < 0.35) {
 
-        // RCLCPP_INFO(this->get_logger(), "Obstacle detected at %.2f m ! ",
-        // msg->ranges[i]);
+        RCLCPP_INFO(this->get_logger(), "Obstacle detected at %.2f m ! ",
+                    msg->ranges[i]);
         return true;
       }
     }
@@ -234,7 +249,7 @@ void Patrol::cmd_vel_pub_timer_clbk_() {
 
   } else {
 
-    RCLCPP_INFO(this->get_logger(), "No obstacle in front of me.");
+    // RCLCPP_INFO(this->get_logger(), "No obstacle in front of me.");
 
     // If the robot is turning around after a lap completion
     if (this->lap_completed_ && !(this->turn_around_completed_)) {
