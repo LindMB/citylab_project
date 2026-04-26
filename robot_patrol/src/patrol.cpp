@@ -108,27 +108,34 @@ void Patrol::laserscan_callback_(
 void Patrol::identify_safest_direction_to_move_next(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
 
-  int index_min = (-M_PI_2 - msg->angle_min) / msg->angle_increment;
-  int index_max = (M_PI_2 - msg->angle_min) / msg->angle_increment;
-  index_min = std::max(0, index_min);
-  index_max = std::min((int)msg->ranges.size() - 1, index_max);
+  double angle = msg->angle_min;
 
   // Init variables for the longest ray research
   float max_length = -std::numeric_limits<float>::infinity();
   int max_length_index = -1;
   float length = 0.0;
 
-  // Look for the longest ray in ranges between index_min and index_max
-  // (included)
-  for (int i = index_min; i <= index_max; i++) {
+  for (int i = 0; i < (int)msg->ranges.size(); i++) {
 
-    length = msg->ranges[i];
+    angle = msg->angle_min + (i * msg->angle_increment);
 
-    // If length is != from -inf, inf and NaN and is longer than the
-    // previous max_length than...
-    if (std::isfinite(length) && length > max_length) {
-      max_length = length;
-      max_length_index = i;
+    // Normalize angle
+    // from [0, 2pi] (lidar in real life) to [-pi, pi] (lidar in simulation)
+    if (angle > M_PI) {
+      angle -= 2.0 * M_PI;
+    }
+
+    // For a ray of the front section of the lidar...
+    if (angle <= M_PI_2 && angle >= -M_PI_2) {
+
+      length = msg->ranges[i];
+
+      // If length is != from -inf, inf and NaN and is longer than the
+      // previous max_length than...
+      if (std::isfinite(length) && length > max_length) {
+        max_length = length;
+        max_length_index = i;
+      }
     }
   }
 
@@ -186,22 +193,28 @@ void Patrol::stop_robot() {
 bool Patrol::is_obstacle_detected_(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
 
-  int index_min = (-(M_PI / 10) - msg->angle_min) / msg->angle_increment;
-  int index_max = ((M_PI / 10) - msg->angle_min) / msg->angle_increment;
-  index_min = std::max(0, index_min);
-  index_max = std::min((int)msg->ranges.size() - 1, index_max);
+  double angle;
 
-  for (int i = index_min; i <= index_max; i++) {
+  for (int i = 0; i < (int)msg->ranges.size(); i++) {
 
-    // If the ray length is different from inf, -inf and NAN AND is < 35cm
-    if (std::isfinite(msg->ranges[i]) && msg->ranges[i] < 0.35) {
+    angle = msg->angle_min + (i * msg->angle_increment);
 
-      // RCLCPP_INFO(this->get_logger(), "Obstacle detected at %.2f m ! ",
-      // msg->ranges[i]);
-      return true;
+    // Normalize angle
+    // from [0, 2pi] (lidar in real life) to [-pi, pi] (lidar in simulation)
+    if (angle > M_PI) {
+      angle -= 2.0 * M_PI;
+    }
 
-    } else {
-      // Do nothing
+    // For a ray of the front section of the lidar...
+    if (angle <= (M_PI / 12) && angle >= -(M_PI / 12)) {
+
+      // If the ray length is different from inf, -inf and NAN AND is < 35cm
+      if (std::isfinite(msg->ranges[i]) && msg->ranges[i] < 0.35) {
+
+        // RCLCPP_INFO(this->get_logger(), "Obstacle detected at %.2f m ! ",
+        // msg->ranges[i]);
+        return true;
+      }
     }
   }
 
