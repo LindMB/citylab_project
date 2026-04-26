@@ -119,7 +119,7 @@ void Patrol::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
   RCLCPP_INFO(this->get_logger(), "distance_from_start : %.2f",
               distance_from_start);
 
-  // If the distance between the robot and its starting point is less than 50cm
+  // If the distance between the robot and its starting point is less than 35cm
   // if the robot traveled more than 2.0 meters
   if (distance_from_start < 0.35 && this->traveled_distance_ > 2.0 &&
       !this->lap_completed_) {
