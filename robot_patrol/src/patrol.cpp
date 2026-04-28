@@ -244,7 +244,7 @@ void Patrol::turn_robot_around_() {
 
 void Patrol::avoid_obstacle_() {
   auto avoid_msg = geometry_msgs::msg::Twist();
-  avoid_msg.linear.x = 0.1;
+  avoid_msg.linear.x = 0.0;
   avoid_msg.angular.z = this->direction_ / 2;
   this->cmd_vel_pub_->publish(avoid_msg);
 }
