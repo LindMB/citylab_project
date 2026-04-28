@@ -312,7 +312,7 @@ void Patrol::cmd_vel_pub_timer_clbk_() {
 
 std::shared_ptr<Patrol> robot_patrol_node;
 
-void signal_handler(int signum) {
+void signal_handler(int /*signum*/) { // intentionally unused
 
   robot_patrol_node->stop_robot();
   rclcpp::shutdown();
