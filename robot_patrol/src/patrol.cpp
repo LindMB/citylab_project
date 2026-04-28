@@ -266,6 +266,8 @@ void Patrol::stop_robot() {
 bool Patrol::is_obstacle_detected_(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
 
+  // Re init obstacle detection at each laserscan msg reading
+  // to check where the obstacle is in comparison to the robot
   this->obstacle_detected_on_the_left_ = false;
   this->obstacle_detected_on_the_right_ = false;
 
