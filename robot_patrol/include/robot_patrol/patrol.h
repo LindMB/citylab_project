@@ -26,7 +26,8 @@ private:
   bool first_odom_ = false;
   bool start_position_initialized_ = false;
 
-  bool obstacle_detected_ = false;
+  bool obstacle_detected_on_the_left_ = false;
+  bool obstacle_detected_on_the_right_ = false;
   bool lap_completed_ = false;
   bool turn_around_completed_ = false;
 

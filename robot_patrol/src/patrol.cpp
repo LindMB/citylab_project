@@ -152,9 +152,7 @@ void Patrol::laserscan_callback_(
               "angle_min: %.2f | angle_max: %.2f | angle_increment = %.2f",
               msg->angle_min, msg->angle_max, msg->angle_increment);*/
 
-  this->obstacle_detected_ = is_obstacle_detected_(msg);
-
-  if (this->obstacle_detected_) {
+  if (is_obstacle_detected_(msg)) {
     identify_safest_direction_to_move_next(msg);
   } else {
     // Do nothing
@@ -181,8 +179,16 @@ void Patrol::identify_safest_direction_to_move_next(
       angle -= 2.0 * M_PI;
     }
 
-    // For a ray of the front section of the lidar...
-    if (angle <= M_PI_2 && angle >= -M_PI_2) {
+    // 1) If an obstacle is present on the left, look for the longest ray on the
+    // right side
+    // 2) If an obstacle is present on the right, look for the longest
+    // ray on the left side
+    // 3) If an obstacle is present on the front (left and
+    // right at true), look for the longest ray on both sides
+    if (((this->obstacle_detected_on_the_left_) &&
+         (angle < 0 && angle >= -M_PI_2)) ||
+        ((this->obstacle_detected_on_the_right_) &&
+         (angle <= M_PI_2 && angle >= 0))) {
 
       length = msg->ranges[i];
 
@@ -256,7 +262,7 @@ void Patrol::turn_robot_around_() {
 void Patrol::avoid_obstacle_() {
 
   auto avoid_msg = geometry_msgs::msg::Twist();
-  avoid_msg.linear.x = 0.0;
+  avoid_msg.linear.x = 0.05;
   avoid_msg.angular.z = this->direction_ / 2;
   this->cmd_vel_pub_->publish(avoid_msg);
 }
@@ -271,6 +277,11 @@ void Patrol::stop_robot() {
 bool Patrol::is_obstacle_detected_(
     const sensor_msgs::msg::LaserScan::SharedPtr msg) {
 
+  // Re init obstacle detection at each laserscan msg reading
+  // to check where the obstacle is in comparison to the robot
+  this->obstacle_detected_on_the_left_ = false;
+  this->obstacle_detected_on_the_right_ = false;
+
   double angle;
 
   for (int i = 0; i < (int)msg->ranges.size(); i++) {
@@ -283,20 +294,44 @@ bool Patrol::is_obstacle_detected_(
       angle -= 2.0 * M_PI;
     }
 
-    // For a ray of the front section of the lidar...
-    if (angle <= (M_PI / 10) && angle >= -(M_PI / 10)) {
+    // If the ray length is different from inf, -inf and NAN AND is < 35cm
+    if (std::isfinite(msg->ranges[i]) && msg->ranges[i] < 0.35) {
 
-      // If the ray length is different from inf, -inf and NAN AND is < 35cm
-      if (std::isfinite(msg->ranges[i]) && msg->ranges[i] < 0.35) {
-
-        RCLCPP_INFO(this->get_logger(), "Obstacle detected at %.2f m ! ",
+      // For a ray of the front-left section (between 30deg and 45deg) of the
+      // lidar...
+      if (angle >= M_PI / 12 && angle <= M_PI / 6) {
+        RCLCPP_INFO(this->get_logger(),
+                    "Obstacle detected at %.2f m on the left ! ",
                     msg->ranges[i]);
-        return true;
+        this->obstacle_detected_on_the_left_ = true;
+      }
+
+      // For a ray of the front-right section (between -30deg and -45deg) of the
+      // lidar...
+      else if (angle <= -M_PI / 12 && angle >= -M_PI / 6) {
+        RCLCPP_INFO(this->get_logger(),
+                    "Obstacle detected at %.2f m on the right !",
+                    msg->ranges[i]);
+        this->obstacle_detected_on_the_right_ = true;
+      }
+
+      // For a ray of the very front section (between -10deg and
+      // 10deg) of the lidar...
+      else if (angle <= -(M_PI / 18) && angle >= -(M_PI / 10)) {
+        RCLCPP_INFO(this->get_logger(),
+                    "Obstacle detected at %.2f m on the very front !",
+                    msg->ranges[i]);
+        // Both flags at true to allow to look for the safest direction
+        // between [0, pi] and [-pi/2, 0]
+        this->obstacle_detected_on_the_left_ = true;
+        this->obstacle_detected_on_the_right_ = true;
       }
     }
   }
 
-  return false;
+  // Return true if at least one of them is true
+  return this->obstacle_detected_on_the_left_ ||
+         this->obstacle_detected_on_the_right_;
 }
 
 void Patrol::cmd_vel_pub_timer_clbk_() {
@@ -307,7 +342,8 @@ void Patrol::cmd_vel_pub_timer_clbk_() {
     turn_robot_around_();
   }
   // If obstacle detected
-  else if (this->obstacle_detected_) {
+  else if (this->obstacle_detected_on_the_left_ ||
+           this->obstacle_detected_on_the_right_) {
 
     avoid_obstacle_();
 
