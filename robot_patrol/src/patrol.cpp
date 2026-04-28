@@ -256,7 +256,7 @@ void Patrol::turn_robot_around_() {
 void Patrol::avoid_obstacle_() {
 
   auto avoid_msg = geometry_msgs::msg::Twist();
-  avoid_msg.linear.x = 0.1;
+  avoid_msg.linear.x = 0.0;
   avoid_msg.angular.z = this->direction_ / 2;
   this->cmd_vel_pub_->publish(avoid_msg);
 }
@@ -284,7 +284,7 @@ bool Patrol::is_obstacle_detected_(
     }
 
     // For a ray of the front section of the lidar...
-    if (angle <= (M_PI / 4) && angle >= -(M_PI / 4)) {
+    if (angle <= (M_PI / 10) && angle >= -(M_PI / 10)) {
 
       // If the ray length is different from inf, -inf and NAN AND is < 35cm
       if (std::isfinite(msg->ranges[i]) && msg->ranges[i] < 0.35) {
