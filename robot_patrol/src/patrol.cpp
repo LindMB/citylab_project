@@ -325,7 +325,8 @@ bool Patrol::is_obstacle_detected_(
 
 void Patrol::cmd_vel_pub_timer_clbk_() {
 
-  // If the robot is turning around after a lap completion
+  // When a lap has been completed, do a 180deg turn
+  // and when turning around, ignore obstacle detection
   if (this->lap_completed_ && !(this->turn_around_completed_)) {
 
     turn_robot_around_();
