@@ -286,7 +286,7 @@ bool Patrol::is_obstacle_detected_(
     // If the ray length is different from inf, -inf and NAN AND is < 35cm
     if (std::isfinite(msg->ranges[i]) && msg->ranges[i] < 0.35) {
 
-      // For a ray of the front-left section (between 30° and 45°) of the
+      // For a ray of the front-left section (between 15deg and 30deg) of the
       // lidar...
       if (angle >= M_PI / 12 && angle <= M_PI / 6) {
         RCLCPP_INFO(this->get_logger(),
@@ -295,18 +295,18 @@ bool Patrol::is_obstacle_detected_(
         this->obstacle_detected_on_the_left_ = true;
       }
 
-      // For a ray of the front-right section (between -30° and -45°) of the
+      // For a ray of the front-right section (between -15deg and -30deg) of the
       // lidar...
-      else if (angle <= -M_PI / 12 && angle >= -M_PI / 6) {
+      else if (angle >= -M_PI / 6 && angle <= -M_PI / 12) {
         RCLCPP_INFO(this->get_logger(),
                     "Obstacle detected at %.2f m on the right !",
                     msg->ranges[i]);
         this->obstacle_detected_on_the_right_ = true;
       }
 
-      // For a ray of the very front section (between -10° and 10°) of the
+      // For a ray of the very front section (between -10deg and 10deg) of the
       // lidar...
-      else if (angle <= -(M_PI / 18) && angle >= -(M_PI / 10)) {
+      else if (angle >= -(M_PI / 18) && angle <= -(M_PI / 18)) {
         RCLCPP_INFO(this->get_logger(),
                     "Obstacle detected at %.2f m on the very front !",
                     msg->ranges[i]);
