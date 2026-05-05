@@ -12,11 +12,17 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
 include_directories(include)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/GetDirection.srv"
+  DEPENDENCIES sensor_msgs
+)
 
 add_executable(${PROJECT_NAME}_node src/patrol.cpp)
 ament_target_dependencies(${PROJECT_NAME}_node 
@@ -34,6 +40,7 @@ install(TARGETS ${PROJECT_NAME}_node
 install(DIRECTORY 
   launch
   rviz
+  srv
   DESTINATION share/${PROJECT_NAME}
 )
 
