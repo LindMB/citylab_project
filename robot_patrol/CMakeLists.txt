@@ -38,6 +38,13 @@ ament_target_dependencies(direction_service_node
   rclcpp
   sensor_msgs
 )
+
+add_executable(test_service_node src/test_service.cpp)
+ament_target_dependencies(test_service_node
+  rclcpp
+  sensor_msgs
+)
+
 rosidl_get_typesupport_target(cpp_typesupport_target
   ${PROJECT_NAME}
   "rosidl_typesupport_cpp"
@@ -45,11 +52,17 @@ rosidl_get_typesupport_target(cpp_typesupport_target
 target_link_libraries(direction_service_node
   "${cpp_typesupport_target}"
 )
+target_link_libraries(test_service_node
+  "${cpp_typesupport_target}"
+)
 
 install(TARGETS ${PROJECT_NAME}_node
  DESTINATION lib/${PROJECT_NAME}
 )
 install(TARGETS direction_service_node
+ DESTINATION lib/${PROJECT_NAME}
+)
+install(TARGETS test_service_node
  DESTINATION lib/${PROJECT_NAME}
 )
 
