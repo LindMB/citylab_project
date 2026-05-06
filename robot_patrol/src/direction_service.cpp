@@ -19,6 +19,8 @@ void DirectionService::direction_service_callback(
     const std::shared_ptr<GetDirection::Request> request,
     const std::shared_ptr<GetDirection::Response> response) {
 
+  RCLCPP_INFO(this->get_logger(), "Service Requested...");
+
   std::vector<float> total_dist_sec_right;
   std::vector<float> total_dist_sec_front;
   std::vector<float> total_dist_sec_left;
@@ -88,9 +90,11 @@ void DirectionService::direction_service_callback(
   } else {
     response->direction = "forward";
   }
-  RCLCPP_INFO(this->get_logger(), "Right: %.2f | Front: %.2f | Left: %.2f",
-              right_sum, front_sum, left_sum);
+  // RCLCPP_INFO(this->get_logger(), "Right: %.2f | Front: %.2f | Left: %.2f",
+  //             right_sum, front_sum, left_sum);
   RCLCPP_INFO(this->get_logger(), "Go: %s", response->direction.c_str());
+
+  RCLCPP_INFO(this->get_logger(), "Service Completed");
 }
 
 int main(int argc, char **argv) {

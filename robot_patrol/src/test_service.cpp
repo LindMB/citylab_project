@@ -33,6 +33,9 @@ TestService::TestService() : Node("test_service") {
                 "Service %s not available, waiting again...",
                 service_name.c_str());
   }
+
+  RCLCPP_INFO(this->get_logger(), "%s Service Server Ready...",
+              service_name.c_str());
 }
 
 void TestService::handle_service_response_(
@@ -42,7 +45,8 @@ void TestService::handle_service_response_(
   // Get the service server's response
   auto response = result_future.get();
 
-  RCLCPP_INFO(this->get_logger(), "Direction: %s", response->direction.c_str());
+  RCLCPP_INFO(this->get_logger(), "Service Response: direction = %s",
+              response->direction.c_str());
 }
 
 void TestService::laserscan_callback_(
@@ -57,6 +61,7 @@ void TestService::laserscan_callback_(
     return;
   }
 
+  RCLCPP_INFO(this->get_logger(), "Service Request...");
   // Send the request asynchronously
   // and when a response is received, use the handle_service_response_ fct
   auto result_future = this->direction_service_client_->async_send_request(
