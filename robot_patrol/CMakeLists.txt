@@ -45,6 +45,15 @@ ament_target_dependencies(test_service_node
   sensor_msgs
 )
 
+add_executable(${PROJECT_NAME}_with_service_node src/patrol_with_service.cpp)
+ament_target_dependencies(${PROJECT_NAME}_with_service_node 
+  rclcpp
+  sensor_msgs 
+  geometry_msgs 
+  nav_msgs 
+  tf2
+)
+
 rosidl_get_typesupport_target(cpp_typesupport_target
   ${PROJECT_NAME}
   "rosidl_typesupport_cpp"
@@ -55,6 +64,9 @@ target_link_libraries(direction_service_node
 target_link_libraries(test_service_node
   "${cpp_typesupport_target}"
 )
+target_link_libraries(${PROJECT_NAME}_with_service_node
+  "${cpp_typesupport_target}"
+)
 
 install(TARGETS ${PROJECT_NAME}_node
  DESTINATION lib/${PROJECT_NAME}
@@ -63,6 +75,9 @@ install(TARGETS direction_service_node
  DESTINATION lib/${PROJECT_NAME}
 )
 install(TARGETS test_service_node
+ DESTINATION lib/${PROJECT_NAME}
+)
+install(TARGETS ${PROJECT_NAME}_with_service_node
  DESTINATION lib/${PROJECT_NAME}
 )
 
