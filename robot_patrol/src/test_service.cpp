@@ -12,7 +12,7 @@ TestService::TestService() : Node("test_service") {
 
   auto qos = rclcpp::QoS(10).reliability(rclcpp::ReliabilityPolicy::Reliable);
   this->laserscan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-      "/fastbot_1/scan", qos,
+      "/scan", qos,
       std::bind(&TestService::laserscan_callback_, this,
                 std::placeholders::_1));
 

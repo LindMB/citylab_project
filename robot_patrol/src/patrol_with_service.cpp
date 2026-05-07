@@ -20,15 +20,15 @@ Patrol::Patrol(const std::string &node_name)
   auto qos = rclcpp::QoS(10).reliability(rclcpp::ReliabilityPolicy::Reliable);
 
   this->laserscan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-      "/fastbot_1/scan", qos,
+      "/scan", qos,
       std::bind(&Patrol::laserscan_callback_, this, std::placeholders::_1));
 
   this->odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-      "/fastbot_1/odom", qos,
+      "/odom", qos,
       std::bind(&Patrol::odom_callback_, this, std::placeholders::_1));
 
-  this->cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>(
-      "/fastbot_1/cmd_vel", 10);
+  this->cmd_vel_pub_ =
+      this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
 
   auto timer_period = std::chrono::milliseconds(100); // 10Hz = 0.1s = 100ms
 
@@ -114,10 +114,21 @@ void Patrol::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
     delta_yaw += 2.0 * M_PI;
   }
 
+  // Calculate the total robot rotation done since the robot started moving
+
+  // Ignore small noise-induced movements
+  double filtered_delta = 0.0;
+
+  if (std::abs(delta_yaw) > 0.02) { // Threshold for actual movements
+    filtered_delta = delta_yaw;
+  } else {
+    filtered_delta = 0.0;
+  }
+
   // Robot is currently doing the 180 deg turn
   if (this->lap_completed_ && !this->turn_around_completed_) {
 
-    this->accumulated_turn_yaw_ += std::abs(delta_yaw);
+    this->accumulated_turn_yaw_ += std::abs(filtered_delta);
 
     RCLCPP_INFO(this->get_logger(), "accumulated_turn_yaw_ : %.2f",
                 this->accumulated_turn_yaw_);
@@ -138,9 +149,9 @@ void Patrol::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
   RCLCPP_INFO(this->get_logger(), "distance_from_start : %.2f",
               distance_from_start);
 
-  // If the distance between the robot and its starting point is less than 40cm
+  // If the distance between the robot and its starting point is less than 35cm
   // if the robot traveled more than 2.0 meters
-  if (distance_from_start < 0.40 && this->traveled_distance_ > 2.0 &&
+  if (distance_from_start < 0.35 && this->traveled_distance_ > 2.0 &&
       !this->lap_completed_) {
 
     RCLCPP_INFO(this->get_logger(), "1 full lap completed !");
