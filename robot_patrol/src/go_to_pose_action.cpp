@@ -28,6 +28,7 @@ GoToPose::GoToPose(const rclcpp::NodeOptions &options)
   this->cmd_vel_pub_timer_ = this->create_wall_timer(
       timer_period, std::bind(&GoToPose::cmd_vel_pub_timer_clbk_, this));
 
+  this->goal_accepted_ = false;
   this->goal_reached_ = false;
   this->go_to_pose_action_server_ =
       rclcpp_action::create_server<GoToPoseAction>(
@@ -56,6 +57,11 @@ void GoToPose::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
 }
 
 void GoToPose::cmd_vel_pub_timer_clbk_() {
+
+  // If no goal has been set...
+  if (!this->goal_accepted_) {
+    return; // go to the next iteration...
+  }
 
   // Compute the difference between desired_pos_ and current_pos_
   double dx = this->desired_pos_.x - this->current_pos_.x;
@@ -96,6 +102,7 @@ void GoToPose::cmd_vel_pub_timer_clbk_() {
       goal_msg.angular.z = 0.0; // stop rotating
 
       this->goal_reached_ = true;
+      this->goal_accepted_ = false;
     }
     // if the robot doesn't have the same orientation yet...
     else {
@@ -162,6 +169,7 @@ void GoToPose::handle_accepted_(
 
   (void)goal_handle;
 
+  this->goal_accepted_ = true;
   this->goal_reached_ = false;
 
   // Since handle_accepted_() is a callback function, if it takes too long
@@ -187,6 +195,9 @@ void GoToPose::execute_(std::shared_ptr<GoalHandleGoToPose> goal_handle) {
     if (goal_handle->is_canceling()) {
 
       RCLCPP_INFO(this->get_logger(), "Goal canceled");
+
+      this->goal_accepted_ = false;
+      this->goal_reached_ = false;
 
       // Stop the robot
       auto stop_msg = geometry_msgs::msg::Twist();
