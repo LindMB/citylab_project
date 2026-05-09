@@ -12,6 +12,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
+find_package(action_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -21,7 +22,8 @@ include_directories(include)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/GetDirection.srv"
-  DEPENDENCIES sensor_msgs
+  "action/GoToPose.action"
+  DEPENDENCIES sensor_msgs geometry_msgs
 )
 
 add_executable(${PROJECT_NAME}_node src/patrol.cpp)
@@ -82,6 +84,7 @@ install(TARGETS ${PROJECT_NAME}_with_service_node
 )
 
 install(DIRECTORY 
+  action
   launch
   rviz
   srv
