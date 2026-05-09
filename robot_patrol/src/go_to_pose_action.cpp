@@ -90,7 +90,7 @@ void GoToPose::cmd_vel_pub_timer_clbk_() {
   goal_msg.linear.x = 0.2;
 
   // If the distance between the goal is < 10cm ...
-  if (distance_from_goal < 0.10) {
+  if (distance_from_goal < 0.1) {
 
     goal_msg.linear.x = 0.0; // stop moving forward
 
@@ -194,7 +194,7 @@ void GoToPose::execute_(std::shared_ptr<GoalHandleGoToPose> goal_handle) {
   auto feedback = std::make_shared<GoToPoseAction::Feedback>();
   auto result = std::make_shared<GoToPoseAction::Result>();
 
-  rclcpp::Rate rate(1); // 1 msg per sec
+  rclcpp::Rate rate(10); // 1 msg per sec
 
   while (rclcpp::ok()) {
 
