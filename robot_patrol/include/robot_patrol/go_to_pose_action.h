@@ -29,6 +29,7 @@ private:
   geometry_msgs::msg::Pose2D desired_pos_;
   geometry_msgs::msg::Pose2D current_pos_;
   bool goal_reached_;
+  bool goal_accepted_;
 
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
