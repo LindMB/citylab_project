@@ -13,6 +13,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(action_msgs REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -56,6 +57,16 @@ ament_target_dependencies(${PROJECT_NAME}_with_service_node
   tf2
 )
 
+add_executable(go_to_pose_action_server_node src/go_to_pose_action.cpp)
+ament_target_dependencies(go_to_pose_action_server_node 
+  rclcpp
+  rclcpp_action
+  sensor_msgs 
+  geometry_msgs 
+  nav_msgs 
+  tf2
+)
+
 rosidl_get_typesupport_target(cpp_typesupport_target
   ${PROJECT_NAME}
   "rosidl_typesupport_cpp"
@@ -69,6 +80,9 @@ target_link_libraries(test_service_node
 target_link_libraries(${PROJECT_NAME}_with_service_node
   "${cpp_typesupport_target}"
 )
+target_link_libraries(go_to_pose_action_server_node
+  "${cpp_typesupport_target}"
+)
 
 install(TARGETS ${PROJECT_NAME}_node
  DESTINATION lib/${PROJECT_NAME}
@@ -80,6 +94,9 @@ install(TARGETS test_service_node
  DESTINATION lib/${PROJECT_NAME}
 )
 install(TARGETS ${PROJECT_NAME}_with_service_node
+ DESTINATION lib/${PROJECT_NAME}
+)
+install(TARGETS go_to_pose_action_server_node
  DESTINATION lib/${PROJECT_NAME}
 )
 
