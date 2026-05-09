@@ -30,11 +30,17 @@ GoToPose::GoToPose(const rclcpp::NodeOptions &options)
 
   this->goal_accepted_ = false;
   this->goal_reached_ = false;
+  const std::string action_server_name = "/go_to_pose";
+
   this->go_to_pose_action_server_ =
       rclcpp_action::create_server<GoToPoseAction>(
-          this, "/go_to_pose", std::bind(&GoToPose::handle_goal_, this, _1, _2),
+          this, action_server_name,
+          std::bind(&GoToPose::handle_goal_, this, _1, _2),
           std::bind(&GoToPose::handle_cancel_, this, _1),
           std::bind(&GoToPose::handle_accepted_, this, _1));
+
+  RCLCPP_INFO(this->get_logger(), "%s Action Server Ready",
+              action_server_name.c_str());
 }
 
 void GoToPose::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
@@ -146,6 +152,7 @@ GoToPose::handle_goal_(const rclcpp_action::GoalUUID &uuid,
   this->desired_pos_.y = goal->goal_pos.y;
   this->desired_pos_.theta = goal->goal_pos.theta;
 
+  RCLCPP_INFO(this->get_logger(), "Action Called");
   RCLCPP_INFO(this->get_logger(),
               "Received goal request with x: %.2f, y: %.2f, theta: %.2f",
               this->desired_pos_.x, this->desired_pos_.y,
@@ -213,6 +220,7 @@ void GoToPose::execute_(std::shared_ptr<GoalHandleGoToPose> goal_handle) {
     if (this->goal_reached_) {
 
       RCLCPP_INFO(this->get_logger(), "Goal reached successfully!");
+      RCLCPP_INFO(this->get_logger(), "Action Completed");
       result->status = true;
       goal_handle->succeed(result);
       return;
