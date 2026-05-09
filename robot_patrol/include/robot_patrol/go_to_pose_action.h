@@ -28,6 +28,7 @@ public:
 private:
   geometry_msgs::msg::Pose2D desired_pos_;
   geometry_msgs::msg::Pose2D current_pos_;
+  bool goal_reached_;
 
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
@@ -38,10 +39,12 @@ private:
   void odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg);
   void cmd_vel_pub_timer_clbk_();
 
+  // Action Server Callback functions
   rclcpp_action::GoalResponse
   handle_goal_(const rclcpp_action::GoalUUID &uuid,
                std::shared_ptr<const GoToPoseAction::Goal> goal);
   rclcpp_action::CancelResponse
   handle_cancel_(std::shared_ptr<GoalHandleGoToPose> goal_handle);
   void handle_accepted_(std::shared_ptr<GoalHandleGoToPose> goal_handle);
+  void execute_(std::shared_ptr<GoalHandleGoToPose> goal_handle);
 };
