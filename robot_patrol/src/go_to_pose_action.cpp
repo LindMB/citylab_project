@@ -9,6 +9,8 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
 
 GoToPose::GoToPose(const rclcpp::NodeOptions &options)
     : Node("go_to_pose_action_server_node", options) {
@@ -28,7 +30,24 @@ GoToPose::GoToPose(const rclcpp::NodeOptions &options)
           std::bind(&GoToPose::handle_accepted_, this, _1));
 }
 
-void GoToPose::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {}
+void GoToPose::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
+
+  // Retrieve robot position from msg
+  this->current_pos_.x = msg->pose.pose.position.x;
+  this->current_pos_.y = msg->pose.pose.position.y;
+
+  // Retrieve robot orientation from msg
+  tf2::Quaternion q(msg->pose.pose.orientation.x, msg->pose.pose.orientation.y,
+                    msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
+
+  // Convert quaternion to angle (roll, pitch, yaw)
+  // with yaw -> orientation around the z-axis
+  tf2::Matrix3x3 m(q);
+  double roll, pitch, yaw;
+  m.getRPY(roll, pitch, yaw);
+
+  this->current_pos_.theta = yaw;
+}
 
 void GoToPose::cmd_vel_pub_timer_clbk_(){};
 
