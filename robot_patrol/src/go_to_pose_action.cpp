@@ -20,11 +20,11 @@ GoToPose::GoToPose(const rclcpp::NodeOptions &options)
 
   auto qos = rclcpp::QoS(10).reliability(rclcpp::ReliabilityPolicy::Reliable);
   this->odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-      "/fastbot_1/odom", qos, std::bind(&GoToPose::odom_callback_, this, _1));
+      "/odom", qos, std::bind(&GoToPose::odom_callback_, this, _1));
 
   auto timer_period = std::chrono::milliseconds(100); // 10Hz = 0.1s = 100ms
-  this->cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>(
-      "/fastbot_1/cmd_vel", 10);
+  this->cmd_vel_pub_ =
+      this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
   this->cmd_vel_pub_timer_ = this->create_wall_timer(
       timer_period, std::bind(&GoToPose::cmd_vel_pub_timer_clbk_, this));
 
