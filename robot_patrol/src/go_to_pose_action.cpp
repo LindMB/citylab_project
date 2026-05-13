@@ -113,7 +113,7 @@ void GoToPose::cmd_vel_pub_timer_clbk_() {
     // if the robot doesn't have the same orientation yet...
     else {
 
-      goal_msg.linear.x = 0.0; // do not move forward
+      goal_msg.linear.x = 0.0; // do not move forward just rotate
 
       if (delta_theta > 0.05) {
         goal_msg.angular.z = 0.5; // turn left
@@ -140,7 +140,7 @@ void GoToPose::cmd_vel_pub_timer_clbk_() {
     }
     // if the goal is in front of the robot (-30 deg -> +30 deg)
     else {
-      goal_msg.linear.x = 0.2; // move forward
+      goal_msg.linear.x = 0.2; // move forward only in this case
       goal_msg.angular.z = 0.0;
     }
   }
