@@ -87,7 +87,7 @@ void GoToPose::cmd_vel_pub_timer_clbk_() {
   angle_error = std::atan2(std::sin(angle_error), std::cos(angle_error));
 
   auto goal_msg = geometry_msgs::msg::Twist();
-  goal_msg.linear.x = 0.2;
+  // goal_msg.linear.x = 0.2;
 
   // If the distance between the goal is < 10cm ...
   if (distance_from_goal < 0.1) {
@@ -112,6 +112,9 @@ void GoToPose::cmd_vel_pub_timer_clbk_() {
     }
     // if the robot doesn't have the same orientation yet...
     else {
+
+      goal_msg.linear.x = 0.0; // do not move forward
+
       if (delta_theta > 0.05) {
         goal_msg.angular.z = 0.5; // turn left
       } else if (delta_theta < -0.05) {
@@ -124,17 +127,21 @@ void GoToPose::cmd_vel_pub_timer_clbk_() {
   }
   // If the robot is not at the desired position yet...
   else {
+
+    goal_msg.linear.x = 0.0; // do not move forward
+
     // if the goal is on the right side of the robot (-30 deg -> -180 deg)
     if (angle_error < -(M_PI / 6)) {
       goal_msg.angular.z = -0.5; // turn right
     }
     // if the goal is on the left side of the robot (+30 deg -> +180 deg)
-    else if (angle_error >= (M_PI / 6)) {
+    else if (angle_error > (M_PI / 6)) {
       goal_msg.angular.z = 0.5; // turn left
     }
     // if the goal is in front of the robot (-30 deg -> +30 deg)
     else {
-      goal_msg.angular.z = 0.0; // move forward
+      goal_msg.linear.x = 0.2; // move forward
+      goal_msg.angular.z = 0.0;
     }
   }
 
