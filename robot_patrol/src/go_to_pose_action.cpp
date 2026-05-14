@@ -105,7 +105,7 @@ void GoToPose::cmd_vel_pub_timer_clbk_() {
     delta_theta = std::atan2(std::sin(delta_theta), std::cos(delta_theta));
 
     // If the robot has the same orientation as the goal...
-    if (std::abs(delta_theta) < 0.03) { // threshold = 0.03
+    if (std::abs(delta_theta) < 0.02) { // threshold = 0.02
 
       goal_msg.angular.z = 0.0; // stop rotating
 
