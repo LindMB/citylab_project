@@ -59,7 +59,7 @@ void GoToPose::odom_callback_(const nav_msgs::msg::Odometry::SharedPtr msg) {
   double roll, pitch, yaw;
   m.getRPY(roll, pitch, yaw);
 
-  this->current_pos_.theta = yaw;
+  this->current_pos_.theta = yaw; // in radians
 }
 
 void GoToPose::cmd_vel_pub_timer_clbk_() {
@@ -73,7 +73,7 @@ void GoToPose::cmd_vel_pub_timer_clbk_() {
   double dx = this->desired_pos_.x - this->current_pos_.x;
   double dy = this->desired_pos_.y - this->current_pos_.y;
 
-  double distance_from_goal = std::sqrt(dx * dx + dy * dy);
+  double distance_from_goal = std::sqrt(dx * dx + dy * dy); // in meters
 
   // Compute the angle (in [-pi, pi]) of the vector (dx, dy)
   // (ie between the robot and its goal)
@@ -87,23 +87,25 @@ void GoToPose::cmd_vel_pub_timer_clbk_() {
   angle_error = std::atan2(std::sin(angle_error), std::cos(angle_error));
 
   auto goal_msg = geometry_msgs::msg::Twist();
-  // goal_msg.linear.x = 0.2;
 
   // If the distance between the goal is < 10cm ...
   if (distance_from_goal < 0.1) {
 
     goal_msg.linear.x = 0.0; // stop moving forward
 
-    // Compute the difference of orientation
-    // between desired_pos_ and current_pos_
-    double delta_theta = this->desired_pos_.theta - this->current_pos_.theta;
+    // Convert theta of desired_pos_ in radians
+    double desired_pos_theta_rad = (this->desired_pos_.theta * M_PI) / 180;
+
+    // Compute the difference of orientation between
+    // desired_pos_theta_rad (in radian) and current_pos_.theta (in radian)
+    double delta_theta = desired_pos_theta_rad - this->current_pos_.theta;
 
     // Normalize the angle of how much the robot has to rotate to have
     // the same orientation as the goal in front of the goal between [-pi, pi]
     delta_theta = std::atan2(std::sin(delta_theta), std::cos(delta_theta));
 
     // If the robot has the same orientation as the goal...
-    if (std::abs(delta_theta) < 0.05) { // threshold = 0.05
+    if (std::abs(delta_theta) < 0.03) { // threshold = 0.03
 
       goal_msg.angular.z = 0.0; // stop rotating
 
@@ -115,12 +117,10 @@ void GoToPose::cmd_vel_pub_timer_clbk_() {
 
       goal_msg.linear.x = 0.0; // do not move forward just rotate
 
-      if (delta_theta > 0.05) {
-        goal_msg.angular.z = 0.5; // turn left
-      } else if (delta_theta < -0.05) {
-        goal_msg.angular.z = -0.5; // turn right
+      if (delta_theta > 0.0) {
+        goal_msg.angular.z = 0.2; // turn left
       } else {
-        goal_msg.angular.z = 0.0; // stop rotating
+        goal_msg.angular.z = -0.2; // turn right
       }
     }
 
@@ -130,15 +130,15 @@ void GoToPose::cmd_vel_pub_timer_clbk_() {
 
     goal_msg.linear.x = 0.0; // do not move forward
 
-    // if the goal is on the right side of the robot (-30 deg -> -180 deg)
-    if (angle_error < -(M_PI / 6)) {
-      goal_msg.angular.z = -0.5; // turn right
+    // if the goal is on the right side of the robot (-5 deg -> -180 deg)
+    if (angle_error < -(M_PI / 36)) {
+      goal_msg.angular.z = -0.2; // turn right
     }
-    // if the goal is on the left side of the robot (+30 deg -> +180 deg)
-    else if (angle_error > (M_PI / 6)) {
-      goal_msg.angular.z = 0.5; // turn left
+    // if the goal is on the left side of the robot (+5 deg -> +180 deg)
+    else if (angle_error > (M_PI / 36)) {
+      goal_msg.angular.z = 0.2; // turn left
     }
-    // if the goal is in front of the robot (-30 deg -> +30 deg)
+    // if the goal is in front of the robot (-5 deg -> +5 deg)
     else {
       goal_msg.linear.x = 0.2; // move forward only in this case
       goal_msg.angular.z = 0.0;
@@ -238,7 +238,10 @@ void GoToPose::execute_(std::shared_ptr<GoalHandleGoToPose> goal_handle) {
 
     feedback->current_pos.x = this->current_pos_.x;
     feedback->current_pos.y = this->current_pos_.y;
-    feedback->current_pos.theta = this->current_pos_.theta;
+
+    // Conversion in degree for the feedback
+    // (since theta is expressed in degree)
+    feedback->current_pos.theta = (this->current_pos_.theta * 180) / M_PI;
 
     goal_handle->publish_feedback(feedback);
 
